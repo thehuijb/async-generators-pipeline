@@ -71,6 +71,48 @@ async function* produceLast(queue, ref, ms = 500) {
     ref.callback = null;
   }
 }
+
+const gen = {
+  callback: null,
+  queue: [],
+  [Symbol.asyncIterator]: async function* () {
+    for(;;) {
+      while (this.queue.length) {
+        if (this.queue.length > 1) {
+          this.queue.shift();
+          continue;
+        }
+        await wait(500);
+        if (this.queue.length > 1) {
+          continue;
+        }
+        yield this.queue.shift();
+      }
+      await new Promise(i => (this.callback = i));
+      this.callback = null;
+    }
+  }
+}
+
+function processEnd (finalFn, ...fns) {
+  (async () => {
+    for await (const i of pipe(fns)(gen)) {
+      if (finalFn && typeof finalFn === 'function') {
+        finalFn(i);
+      } else {
+        console.log(i);
+      }
+    }
+  })();
+  return {
+    post(val) {
+      if (gen.callback) {
+        gen.callback();
+      }
+      gen.queue.push(val);
+    }
+  }
+}
 // nano framework pass generator functions to method that you want to execute as part of the pipeline
 function processLast(finalFn, ...fns) {
   const ref = {callback: null};
@@ -87,4 +129,4 @@ function processLast(finalFn, ...fns) {
   };
 }
 
-export { process, processLast};
+export { process, processEnd, processLast};

@@ -1,6 +1,6 @@
 // Import stylesheets
 import './style.css';
-import {process, processLast} from './src/queueProcessing.js';
+import {process, processEnd, processLast} from './src/queueProcessing.js';
 
 // Write Javascript code!
 const appDiv = document.getElementById('app');
@@ -86,7 +86,7 @@ const endOfPipeline = (name)=> (i) => console.log(`${name}: end of days: waarde 
 const store = process(endOfPipeline('store'), counter, render); // order matters
 //const reverseStore = process(endOfPipeline('reverseStore'), render, counter); // order matters
 let val = '';
-const eventProcessor = processLast(v => {
+const eventProcessor = processEnd(v => {
   if (val !== v) {
     console.log(`val: ${val} => ${v}`);
     val = v;
@@ -94,7 +94,7 @@ const eventProcessor = processLast(v => {
 })
 
 document.getElementById("radiogroup").addEventListener("change", function(e) {
-  eventProcessor.dispatch(e.target.value);
+  eventProcessor.post(e.target.value);
 });
 document.getElementById("increment").addEventListener("click", function() {
   store.dispatch({ type: "INCREMENT" });
