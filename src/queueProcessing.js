@@ -7,16 +7,33 @@ const pipe = fns => x => {
     return x;
   }
 }
+
 const wait = (ms) => {
   return new Promise(function(r) {
     setTimeout(r, ms);
   });
 }
 
-// async generator will produce the entries in the queue one by one and wait for new entries 
-async function* produce(queue, ref) {
+/*
+ * async generator will produce the entries in the queue one by one and wait for new entries
+ * if onlyLast === true the async generator will produce only the final entry in the queue
+ * will skip entries if new entries come in within the given ms (defaults to 500)
+ * param - onlyLast if true only get the final entry
+ * param -
+ */
+async function* produce({onlyLast = false, queue, ref, ms = 500}) {
   for (;;) {
     while (queue.length) {
+      if (onlyLast) {
+        if (queue.length > 1) {
+          queue.shift();
+          continue;
+        }
+        await wait(ms);
+        if (queue.length > 1) {
+          continue;
+        }
+      }
       yield queue.shift(); //yield the first entry in the queue.
     }
     await new Promise(i => (ref.callback = i));
@@ -37,7 +54,7 @@ function process(finalFn, ...fns) {
   const ref = { callback: null};
   const queue = [];
   
-  const producer = produce(queue, ref);
+  const producer = produce({queue, ref});
 
   consume(producer, finalFn, fns);
   
@@ -49,27 +66,6 @@ function process(finalFn, ...fns) {
       queue.push(action);
     }
   };
-}
-
-// async generator will produce the final entry in the queue after 500ms 
-// and wait for new entries
-// will skip entries if new entries come in within 500ms 
-async function* produceLast(queue, ref, ms = 500) {
-  for (;;) {
-    while (queue.length) {
-      if (queue.length > 1) {
-        queue.shift();
-        continue;
-      }
-      await wait(ms);
-      if (queue.length > 1) {
-        continue;
-      }
-      yield queue.shift(); // yield the first and only entry
-    }
-    await new Promise(i => (ref.callback = i));
-    ref.callback = null;
-  }
 }
 
 function getProducer(onlyLast, ms = 500) {
@@ -114,7 +110,7 @@ function processEnd (finalFn, ...fns) {
 function processLast(finalFn, ...fns) {
   const ref = {callback: null};
   const queue = [];
-  const producer = produceLast(queue, ref);
+  const producer = produce({onlyLast: true, queue, ref});
   consume(producer, finalFn, fns);
   return {
     dispatch(action) {
