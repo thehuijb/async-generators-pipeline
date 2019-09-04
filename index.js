@@ -59,7 +59,7 @@ async function* counter(input) {
         action.value = state; // you can manipulate the entree you are processing, make sure you yield the manipulated entree
         break;
       case "DECREMENT":
-        state--;
+        state && state--;
         yield { type: "VALUE", value: state }; //you can introduce an extra entree, goes to the next function in the pipeline
         break;
       default:
@@ -84,17 +84,32 @@ async function* render(input) {
 }
 const endOfPipeline = (name)=> (i) => console.log(`${name}: end of days: waarde ${i.value}, type=${i.type}`); //think about what your messages look like
 const store = process(endOfPipeline('store'), counter, render); // order matters
+
 //const reverseStore = process(endOfPipeline('reverseStore'), render, counter); // order matters
+
+async function* part1(input) {
+  for await (const i of input) {
+    console.log(`part 1: ${i}`)
+    switch(i) {
+      case 'g':
+        yield i.toUpperCase();
+        break;
+      default:
+        yield i;
+    }    
+  }
+}
+
 let val = '';
-const eventProcessor = processEnd(v => {
+const eventProcessor = processLast(v => {
   if (val !== v) {
     console.log(`val: ${val} => ${v}`);
     val = v;
   }
-})
+}, part1);
 
 document.getElementById("radiogroup").addEventListener("change", function(e) {
-  eventProcessor.post(e.target.value);
+  eventProcessor.dispatch(e.target.value);
 });
 document.getElementById("increment").addEventListener("click", function() {
   store.dispatch({ type: "INCREMENT" });
