@@ -72,38 +72,35 @@ async function* produceLast(queue, ref, ms = 500) {
   }
 }
 
-const gen = {
-  callback: null,
-  queue: [],
-  [Symbol.asyncIterator]: async function* () {
-    for(;;) {
-      while (this.queue.length) {
-        if (this.queue.length > 1) {
-          this.queue.shift();
-          continue;
+function getProducer(onlyLast, ms = 500) {
+  return {
+    callback: null,
+    queue: [],
+    [Symbol.asyncIterator]: async function* () {
+      for(;;) {
+        while (this.queue.length) {
+          if (onlyLast) {
+            if (this.queue.length > 1) {
+              this.queue.shift();
+              continue;
+            }
+            await wait(ms);
+            if (this.queue.length > 1) {
+              continue;
+            }
+          }
+          yield this.queue.shift();
         }
-        await wait(500);
-        if (this.queue.length > 1) {
-          continue;
-        }
-        yield this.queue.shift();
+        await new Promise(i => (this.callback = i));
+        this.callback = null;
       }
-      await new Promise(i => (this.callback = i));
-      this.callback = null;
     }
   }
 }
 
 function processEnd (finalFn, ...fns) {
-  (async () => {
-    for await (const i of pipe(fns)(gen)) {
-      if (finalFn && typeof finalFn === 'function') {
-        finalFn(i);
-      } else {
-        console.log(i);
-      }
-    }
-  })();
+  const gen = getProducer(true);
+  consume(gen, finalFn, fns);
   return {
     post(val) {
       if (gen.callback) {
