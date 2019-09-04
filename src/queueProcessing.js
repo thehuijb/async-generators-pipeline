@@ -13,15 +13,16 @@ const wait = (ms) => {
   });
 }
 
-
 // nano framework pass functions to method that you want to execute as part of the process
 function process(finalFn, ...fns) {
   let callback;
   const queue = [];
+
+  // async generator will produce the entries in the queue one by one and wait for new entries 
   async function* produce() {
     for (;;) {
       while (queue.length) {
-        yield queue.shift();
+        yield queue.shift(); //yield the first entry in the queue.
       }
       await new Promise(i => (callback = i));
       callback = null;
@@ -45,10 +46,12 @@ function process(finalFn, ...fns) {
   };
 }
 
-// nano framework pass functions to method that you want to execute as part of the process
+// nano framework pass generator functions to method that you want to execute as part of the pipeline
 function processLast(finalFn, ...fns) {
   let callback;
   const queue = [];
+  // async generator will produce the entries in the queue one by one and wait for new entries
+  // will skip entries if new entries come in within 500ms 
   async function* produce() {
     for (;;) {
       while (queue.length) {
