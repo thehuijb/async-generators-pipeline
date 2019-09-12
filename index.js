@@ -1,9 +1,9 @@
 // Import stylesheets
-import './style.css';
-import {process, processEnd, processLast} from './src/queueProcessing.js';
+import "./style.css";
+import { processQueueAsync, processEvent } from "./src/queueProcessing.js";
 
 // Write Javascript code!
-const appDiv = document.getElementById('app');
+const appDiv = document.getElementById("app");
 appDiv.innerHTML = `<h1>JS Starter</h1>
 <div>
   <p>
@@ -50,7 +50,7 @@ appDiv.innerHTML = `<h1>JS Starter</h1>
 async function* counter(input) {
   let state = 0;
   yield { type: "LALALA", value: state }; // you can pass something down the pipeline to initialize
-//  yield { type: "VALUE", value: ++state }; //and another they will only be executed once.
+  //  yield { type: "VALUE", value: ++state }; //and another they will only be executed once.
   for await (const action of input) {
     console.log(`counter method: action type = ${action.type}`);
     switch (action.type) {
@@ -72,53 +72,77 @@ async function* counter(input) {
 var valueEl = document.getElementById("value");
 
 async function* render(input) {
-  yield { type: "BASE" }
-  yield { type: "TREBBLE"}
+  yield { type: "BASE" };
+  yield { type: "TREBBLE" };
   for await (const i of input) {
-    console.log(`render method: ${i.type}, val = ${i.value}`)
-    if (i.value > -1){
+    console.log(`render method: ${i.type}, val = ${i.value}`);
+    if (i.value > -1) {
       valueEl.innerHTML = i.value.toString(); //manipulate the DOM for example
     }
     yield i;
   }
 }
-const endOfPipeline = (name)=> (i) => console.log(`${name}: end of days: waarde ${i.value}, type=${i.type}`); //think about what your messages look like
-const store = process(endOfPipeline('store'), counter, render); // order matters
+const endOfPipeline = name => i =>
+  console.log(`${name}: end of days: waarde ${i.value}, type=${i.type}`); //think about what your messages look like
+const store = processQueueAsync(endOfPipeline("store"), counter, render); // order matters
 
 //const reverseStore = process(endOfPipeline('reverseStore'), render, counter); // order matters
 
 async function* part1(input) {
   for await (const i of input) {
-    console.log(`part 1: ${i}`)
-    switch(i) {
-      case 'g':
+    console.log(`part 1: ${i}`);
+    switch (i) {
+      case "g":
         yield i.toUpperCase();
         break;
       default:
         yield i;
-    }    
+    }
   }
 }
 
-let val = '';
-const eventProcessor = processLast(v => {
-  if (val !== v) {
-    console.log(`val: ${val} => ${v}`);
-    val = v;
+function part2(input) {
+  console.log(`part 2: ${input}`);
+  switch (input) {
+    case "g":
+      return input.toUpperCase();
+    default:
+      return input;
   }
-}, part1);
+}
+function part3(input) {
+  console.log(`part 3: ${input}`);
+  switch (input) {
+    case "h":
+      return input.toUpperCase() + "ello";
+    default:
+      return input;
+  }
+}
+
+let val = "";
+const eventProcessor = processEvent(
+  v => {
+    if (val !== v) {
+      console.log(`val: ${val} => ${v}`);
+      val = v;
+    }
+  },
+  part2,
+  part3
+);
 
 document.getElementById("radiogroup").addEventListener("change", function(e) {
-  eventProcessor.dispatch(e.target.value);
+  eventProcessor.push(e.target.value);
 });
 document.getElementById("increment").addEventListener("click", function() {
-  store.dispatch({ type: "INCREMENT" });
+  store.push({ type: "INCREMENT" });
 });
 document.getElementById("decrement").addEventListener("click", function() {
-  store.dispatch({ type: "DECREMENT" });
+  store.push({ type: "DECREMENT" });
 });
 document.getElementById("incrementAsync").addEventListener("click", function() {
   setTimeout(function() {
-    store.dispatch({ type: "INCREMENT" });
+    store.push({ type: "INCREMENT" });
   }, 1000);
 });

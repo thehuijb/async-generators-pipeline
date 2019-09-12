@@ -1,18 +1,34 @@
 // using reduce to pipe functions together
-// expects an array of functions
-const pipe = fns => x => { 
+// expects an array of generator functions
+const pipeGenerators = fns => x => {
   if (fns && fns.length > 0) {
-   return fns.reduce((v, fn) => fn(v), x);
+    return fns.reduce((v, fn) => fn(v), x);
   } else {
     return x;
   }
-}
+};
 
-const wait = (ms) => {
+// using reduce to pipe functions together by wrapping them with async generator functions
+// expects an array of functions
+const pipe = fns => x => {
+  if (fns && fns.length > 0) {
+    return fns.reduce((v, fn) => {
+      return (async function*(input) {
+        for await (const i of input) {
+          yield fn(i);
+        }
+      })(v);
+    }, x);
+  } else {
+    return x;
+  }
+};
+
+const wait = ms => {
   return new Promise(function(r) {
     setTimeout(r, ms);
   });
-}
+};
 
 /*
  * async generator will produce the entries in the queue one by one and wait for new entries
@@ -21,7 +37,7 @@ const wait = (ms) => {
  * param - onlyLast if true only get the final entry
  * param -
  */
-async function* produce({onlyLast = false, queue, ref, ms = 500}) {
+async function* produce({ onlyLast = false, queue, ref, ms = 500 }) {
   for (;;) {
     while (queue.length) {
       if (onlyLast) {
@@ -41,23 +57,23 @@ async function* produce({onlyLast = false, queue, ref, ms = 500}) {
   }
 }
 
-// async function to consume enties produced by the producer and pass them along the pipeline 
-async function consume(producer, finalFn = () => {}, fns) {
-  let pipeline = pipe(fns);
+// async function to consume enties produced by the producer and pass them along the pipeline
+async function consume(producer, finalFn = () => {}, fns, gen = false) {
+  let pipeline = gen ? pipeGenerators(fns) : pipe(fns);
   for await (const i of pipeline(producer)) {
     finalFn(i); // anything added to the queue eventually ends up here.
   }
-};
+}
 
 // nano framework passed generator functions are added to the pipeline
-function process(finalFn, ...fns) {
-  const ref = { callback: null};
+function processQueue(finalFn, ...fns) {
+  const ref = { callback: null };
   const queue = [];
-  
-  const producer = produce({queue, ref});
+
+  const producer = produce({ queue, ref });
 
   consume(producer, finalFn, fns);
-  
+
   return {
     dispatch(action) {
       if (ref.callback) {
@@ -72,8 +88,8 @@ function getProducer(onlyLast, ms = 500) {
   return {
     callback: null,
     queue: [],
-    [Symbol.asyncIterator]: async function* () {
-      for(;;) {
+    [Symbol.asyncIterator]: async function*() {
+      for (;;) {
         while (this.queue.length) {
           if (onlyLast) {
             if (this.queue.length > 1) {
@@ -91,29 +107,29 @@ function getProducer(onlyLast, ms = 500) {
         this.callback = null;
       }
     }
-  }
+  };
 }
 
-function processEnd (finalFn, ...fns) {
+function processEvent(finalFn, ...fns) {
   const gen = getProducer(true);
   consume(gen, finalFn, fns);
   return {
-    post(val) {
+    push(val) {
       if (gen.callback) {
         gen.callback();
       }
       gen.queue.push(val);
     }
-  }
+  };
 }
 // nano framework pass generator functions to method that you want to execute as part of the pipeline
-function processLast(finalFn, ...fns) {
-  const ref = {callback: null};
+function processQueueAsync(finalFn, ...fns) {
+  const ref = { callback: null };
   const queue = [];
-  const producer = produce({onlyLast: true, queue, ref});
-  consume(producer, finalFn, fns);
+  const producer = produce({ queue, ref });
+  consume(producer, finalFn, fns, true);
   return {
-    dispatch(action) {
+    push(action) {
       if (ref.callback) {
         ref.callback();
       }
@@ -121,5 +137,18 @@ function processLast(finalFn, ...fns) {
     }
   };
 }
+// nano framework pass generator functions to method that you want to execute as part of the pipeline
+function processEventAsync(finalFn, ...fns) {
+  const gen = getProducer(true);
+  consume(gen, finalFn, fns, true);
+  return {
+    push(action) {
+      if (gen.callback) {
+        gen.callback();
+      }
+      gen.queue.push(action);
+    }
+  };
+}
 
-export { process, processEnd, processLast};
+export { processQueue, processEvent, processQueueAsync, processEventAsync };
