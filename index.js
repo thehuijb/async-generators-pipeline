@@ -56,11 +56,11 @@ async function* counter(input) {
     switch (action.type) {
       case "INCREMENT":
         state++;
-        action.value = state; // you can manipulate the entree you are processing, make sure you yield the manipulated entree
+        action.value = state; // you can manipulate the entry you are processing, make sure you yield the manipulated entry
         break;
       case "DECREMENT":
         state && state--;
-        yield { type: "VALUE", value: state }; //you can introduce an extra entree, goes to the next function in the pipeline
+        yield { type: "VALUE", value: state }; //you can introduce an extra entry, goes to the next function in the pipeline
         break;
       default:
         yield { type: "VALUE", value: state };
