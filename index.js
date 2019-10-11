@@ -191,12 +191,9 @@ async function* buttonPress(input) {
   }
 }
 const buttonFlow = processQueueAsync(endOfPipeline("buttonFlow"), buttonPress);
-document.getElementById("btn1").addEventListener("click", function() {
-  buttonFlow.push({ id: "btn1", type: "press" });
-});
-document.getElementById("btn2").addEventListener("click", function() {
-  buttonFlow.push({ id: "btn2", type: "press" });
-});
-document.getElementById("btn3").addEventListener("click", function() {
-  buttonFlow.push({ id: "btn3", type: "press" });
-});
+const buttons = document.querySelectorAll('button[type=button]');
+buttons.forEach(button => {
+  button.addEventListener('click', () => {
+    buttonFlow.push({ id: button.id, type: "press" });
+  });
+})
