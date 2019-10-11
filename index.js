@@ -42,6 +42,11 @@ appDiv.innerHTML = `<h1>JS Starter</h1>
     <label><input type="radio" name="radio" value="y">Y</label>
     <label><input type="radio" name="radio" value="z">Z</label>
   </radiogroup>
+</div>
+<div>
+  <button id="btn1" type="button">One!</button>
+  <button id="btn2" type="button">Two!</button>
+  <button id="btn3" type="button">Three!</button>
 </div>`;
 
 // and now for some implementation
@@ -57,6 +62,8 @@ async function* counter(input) {
       case "INCREMENT":
         state++;
         action.value = state; // you can manipulate the entry you are processing, make sure you yield the manipulated entry
+        if (state % 3 === 0)
+          yield action;
         break;
       case "DECREMENT":
         state && state--;
@@ -65,7 +72,7 @@ async function* counter(input) {
       default:
         yield { type: "VALUE", value: state };
     }
-    yield action; // you have to yield the original action to pass your manipulation
+    //yield action; // you have to yield the original action to pass your manipulation
   }
 }
 
@@ -145,4 +152,51 @@ document.getElementById("incrementAsync").addEventListener("click", function() {
   setTimeout(function() {
     store.push({ type: "INCREMENT" });
   }, 1000);
+});
+
+// and now for some implementation
+// use generator functions to create a pipeline
+// vanila JS example
+async function* buttonPress(input) {
+  let onePressedState = false;
+  let twoPressedState = false;
+  let threePressedState = false;
+  yield { value: onePressedState && twoPressedState && threePressedState, type: "state" }; // you can pass something down the pipeline to initialize
+  //  yield { type: "VALUE", value: ++state }; //and another they will only be executed once.
+  for await (const action of input) {
+    console.log(`buttonPress method: action buttonId = ${action.id}`);
+    switch (action.id) {
+      case "btn1":
+        onePressedState = true;
+        setTimeout(() => {
+          onePressedState = false;
+        },2000); // 2seconds to press the rest
+        break;
+      case "btn2":
+        twoPressedState = true;
+        setTimeout(() => {
+          twoPressedState = false;
+        },2000); // 2seconds to press the rest
+        break;
+      case "btn3":
+        threePressedState = true;
+        setTimeout(() => {
+          threePressedState = false;
+        },2000); // 2seconds to press the rest
+        break;
+    }
+    console.log(`one: ${onePressedState}, two: ${twoPressedState}, three: ${threePressedState}`);
+    if (onePressedState && twoPressedState && threePressedState)
+      yield { value: onePressedState && twoPressedState && threePressedState, type: "state" };
+  }
+}
+const buttonFlow = processQueueAsync(endOfPipeline("buttonFlow"), buttonPress);
+document.getElementById("btn1").addEventListener("click", function() {
+  buttonFlow.push({ id: "btn1", type: "press" });
+});
+document.getElementById("btn2").addEventListener("click", function() {
+  buttonFlow.push({ id: "btn2", type: "press" });
+});
+document.getElementById("btn3").addEventListener("click", function() {
+  buttonFlow.push({ id: "btn3", type: "press" });
 });
